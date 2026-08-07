@@ -96,14 +96,18 @@ export const rateLimiterMiddleware = async (req: Request, res: Response<any, Req
         next();
     } catch (err) {
         if (err instanceof RateLimiterRes) {
-            logger.info(`Rate limit exceeded for ${key}. Request: ${req.method} ${req.path})`);
+            // blockDuration is 0, so msBeforeNext is routinely sub-second and Math.floor
+            // serialises as `Retry-After: 0`, hot-looping clients that honour it.
+            const retryAfterSeconds = Math.max(1, Math.ceil(err.msBeforeNext / 1000));
+            // Rejections short-circuit before the request handler, so they leave no activity
+            // log; stdout is the only trace. Warn so they are alertable, and name the
+            // environment so the responsible tenant is identifiable without decoding the key.
+            logger.warning(
+                `Rate limit exceeded for ${key} (env=${res.locals['environment']?.name ?? 'none'} authType=${res.locals.authType ?? 'none'} retryAfter=${retryAfterSeconds}s). Request: ${req.method} ${req.path})`
+            );
 
             setXRateLimitHeaders(maxPoints, err);
-            // Floor at 1s. blockDuration is 0, so msBeforeNext is routinely sub-second and
-            // Math.floor serialises it as `Retry-After: 0`, which makes a client that honours
-            // the header retry immediately and hot-loop against the limiter. This matches
-            // webhook-ingress-ratelimit.middleware.ts, which already rounds up.
-            res.setHeader('Retry-After', Math.max(1, Math.ceil(err.msBeforeNext / 1000)));
+            res.setHeader('Retry-After', retryAfterSeconds);
             res.status(429).send({ error: { code: 'too_many_request', method: req.method, path: req.path } });
             return;
         }
