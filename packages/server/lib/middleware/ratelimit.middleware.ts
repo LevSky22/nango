@@ -76,7 +76,10 @@ export const rateLimiterMiddleware = async (req: Request, res: Response<any, Req
     }
 
     function setXRateLimitHeaders(maxPoints: number, rateLimiterRes: RateLimiterRes) {
-        const resetEpoch = Math.floor(new Date(Date.now() + rateLimiterRes.msBeforeNext).getTime() / 1000);
+        // Floored for the same reason as Retry-After below: with blockDuration 0,
+        // msBeforeNext is routinely sub-second, so an unfloored reset resolves to "now"
+        // and a client honouring X-RateLimit-Reset instead of Retry-After still spins.
+        const resetEpoch = Math.ceil((Date.now() + Math.max(1000, rateLimiterRes.msBeforeNext)) / 1000);
 
         res.setHeader('X-RateLimit-Limit', maxPoints);
         res.setHeader('X-RateLimit-Remaining', rateLimiterRes.remainingPoints);
@@ -125,8 +128,11 @@ function getKey(req: Request, res: Response<any, RequestLocals>): string {
         // would multiply an account's effective ceiling by its environment count. Self-hosted
         // deployments typically run one account with an environment per tenant, where a single
         // account-wide bucket lets one tenant's burst throttle every other tenant.
-        // res.locals['environment'] is populated alongside 'account' on every auth path that
-        // sets it. Keyed on id, not name, so renaming an environment cannot re-key a live bucket.
+        // Falls back to the account-wide bucket when the environment is unresolved:
+        // fillLocalsFromSession returns early for ignoreEnvPaths with only 'account' set, so
+        // those requests keep the account-wide key. That yields one extra bucket per account
+        // rather than fewer, so it cannot weaken the limit.
+        // Keyed on id, not name, so renaming an environment cannot re-key a live bucket.
         if (flagHasRateLimitPerEnvironment && res.locals['environment']?.id !== undefined) {
             key += `-env-${res.locals['environment'].id}`;
         }
