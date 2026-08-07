@@ -3,7 +3,7 @@ import path from 'node:path';
 import { RateLimiterMemory, RateLimiterRedis, RateLimiterRes } from 'rate-limiter-flexible';
 
 import { getRedisUrl } from '@nangohq/kvstore';
-import { flagHasAPIRateLimit, flagHasPlan, getLogger } from '@nangohq/utils';
+import { flagHasAPIRateLimit, flagHasPlan, flagHasRateLimitPerEnvironment, getLogger } from '@nangohq/utils';
 
 import { envs } from '../env.js';
 import { createRateLimiterRedisClient } from '../utils/rateLimiterRedisClient.js';
@@ -117,6 +117,15 @@ export const rateLimiterMiddleware = async (req: Request, res: Response<any, Req
 function getKey(req: Request, res: Response<any, RequestLocals>): string {
     if ('account' in res.locals) {
         let key = `account-${res.locals.authType === 'secretKey' ? 'secret' : 'global'}-${res.locals['account'].id}`;
+        // Optionally give each environment its own bucket. Off by default: on Cloud this
+        // would multiply an account's effective ceiling by its environment count. Self-hosted
+        // deployments typically run one account with an environment per tenant, where a single
+        // account-wide bucket lets one tenant's burst throttle every other tenant.
+        // res.locals['environment'] is populated alongside 'account' on every auth path that
+        // sets it. Keyed on id, not name, so renaming an environment cannot re-key a live bucket.
+        if (flagHasRateLimitPerEnvironment && res.locals['environment']?.id !== undefined) {
+            key += `-env-${res.locals['environment'].id}`;
+        }
         // customers requests and requests from scripts fall into different buckets
         if (req.get('Nango-Is-Script') === 'true') {
             key += `-script`;
