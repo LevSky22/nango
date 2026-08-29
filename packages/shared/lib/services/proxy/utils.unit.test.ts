@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { getProvider } from '@nangohq/providers';
 
 import { getTestConnection } from '../../seeders/connection.seeder.js';
+import { makeUrl } from '../../utils/utils.js';
 import {
     absoluteUrlFromRedirectRequestOptions,
     buildCanonicalParams,
@@ -1088,6 +1089,51 @@ describe('buildProxyURL', () => {
         });
 
         expect(url).toBe('https://www.zohoapis.eu/api/test');
+    });
+
+    it('should replace an interpolated provider base URL at a URL boundary', () => {
+        const config = getDefaultProxy({
+            provider: {
+                auth_mode: 'OAUTH2',
+                proxy: {
+                    base_url: 'https://mail.zoho.${connectionConfig.extension}',
+                    base_url_replacements: {
+                        'https://mail.zoho.ca': 'https://mail.zohocloud.ca'
+                    }
+                }
+            },
+            endpoint: '/api/accounts'
+        });
+
+        const url = buildProxyURL({
+            config,
+            connection: getTestConnection({ connection_config: { extension: 'ca' } })
+        });
+
+        expect(url).toBe('https://mail.zohocloud.ca/api/accounts');
+    });
+
+    it('should not apply a provider base URL replacement to an explicit override', () => {
+        const config = getDefaultProxy({
+            provider: {
+                auth_mode: 'OAUTH2',
+                proxy: {
+                    base_url: 'https://mail.zoho.${connectionConfig.extension}',
+                    base_url_replacements: {
+                        'https://mail.zoho.ca': 'https://mail.zohocloud.ca'
+                    }
+                }
+            },
+            endpoint: '/api/accounts',
+            baseUrlOverride: 'https://mail.zoho.ca'
+        });
+
+        const url = buildProxyURL({
+            config,
+            connection: getTestConnection({ connection_config: { extension: 'ca' } })
+        });
+
+        expect(url).toBe('https://mail.zoho.ca/api/accounts');
     });
 
     it('should handle Proxy base URL interpolation with connection metadata param', () => {
@@ -2624,6 +2670,69 @@ describe('buildProxyBody merged into an existing request body', () => {
         expect(buffer).toContain('name="existing"');
         expect(buffer).toContain('name="auth[a][b][key]"');
         expect(buffer).toContain('my-secret-key');
+    });
+});
+
+describe('zoho-mail (real provider config)', () => {
+    const provider = getProvider('zoho-mail');
+
+    it('resolves the Canadian Mail API host', () => {
+        const config = getDefaultProxy({
+            providerConfigKey: 'zoho-mail',
+            providerName: 'zoho-mail',
+            provider: provider!,
+            endpoint: '/api/accounts'
+        });
+
+        expect(
+            buildProxyURL({
+                config,
+                connection: getTestConnection({ connection_config: { extension: 'ca' } })
+            })
+        ).toBe('https://mail.zohocloud.ca/api/accounts');
+    });
+
+    it.each([
+        ['com', 'https://mail.zoho.com/api/accounts'],
+        ['eu', 'https://mail.zoho.eu/api/accounts']
+    ])('keeps the existing %s Mail API host', (extension, expected) => {
+        const config = getDefaultProxy({
+            providerConfigKey: 'zoho-mail',
+            providerName: 'zoho-mail',
+            provider: provider!,
+            endpoint: '/api/accounts'
+        });
+
+        expect(
+            buildProxyURL({
+                config,
+                connection: getTestConnection({ connection_config: { extension } })
+            })
+        ).toBe(expected);
+    });
+
+    it('accepts Canada in the provider schema and maps its authorization host', () => {
+        expect(provider?.connection_config?.['extension']?.enum).toContain('ca');
+        expect(provider?.authorization_url_replacements).toMatchObject({
+            'accounts.zoho.ca': 'accounts.zohocloud.ca'
+        });
+    });
+
+    it('prefers redirect metadata for the Canadian token endpoint', () => {
+        expect(typeof provider?.token_url).toBe('string');
+        const tokenUrl = makeUrl(provider!.token_url as string, {
+            extension: 'ca',
+            'accounts-server': 'https://accounts.zohocloud.ca'
+        });
+
+        expect(tokenUrl.href).toBe('https://accounts.zohocloud.ca/oauth/v2/token');
+    });
+
+    it('keeps the extension-based token endpoint fallback for stored connections without redirect metadata', () => {
+        expect(typeof provider?.token_url).toBe('string');
+        const tokenUrl = makeUrl(provider!.token_url as string, { extension: 'eu' });
+
+        expect(tokenUrl.href).toBe('https://accounts.zoho.eu/oauth/v2/token');
     });
 });
 

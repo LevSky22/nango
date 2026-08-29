@@ -52,6 +52,7 @@ export interface BaseProvider {
     installation?: 'outbound';
     proxy?: {
         base_url: string;
+        base_url_replacements?: Record<string, string>;
         headers?: Record<string, string>;
         connection_config?: Record<string, string>;
         query?: Record<string, string>;

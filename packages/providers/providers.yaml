@@ -27015,7 +27015,9 @@ zoho:
         - accounting
     auth_mode: OAUTH2
     authorization_url: https://accounts.zoho.${connectionConfig.extension}/oauth/v2/auth || https://accounts.zoho.com/oauth/v2/auth
-    token_url: https://accounts.zoho.${connectionConfig.extension}/oauth/v2/token || ${connectionConfig.accounts-server}/oauth/v2/token
+    authorization_url_replacements:
+        accounts.zoho.ca: accounts.zohocloud.ca
+    token_url: ${connectionConfig.accounts-server}/oauth/v2/token || https://accounts.zoho.${connectionConfig.extension}/oauth/v2/token
     authorization_params:
         prompt: consent
         access_type: offline
@@ -27191,13 +27193,15 @@ zoho-mail:
     alias: zoho
     proxy:
         base_url: https://mail.zoho.${connectionConfig.extension}
+        base_url_replacements:
+            https://mail.zoho.ca: https://mail.zohocloud.ca
     docs: https://nango.dev/docs/integrations/all/zoho-mail
     docs_connect: https://nango.dev/docs/integrations/all/zoho-mail/connect
     connection_config:
         extension:
             type: string
             title: Domain Extension
-            description: The domain extension of your Zoho Mail account.
+            description: The domain extension of your Zoho Mail account. Select ca for the Canada data centre.
             enum:
                 - com
                 - eu
@@ -27205,6 +27209,7 @@ zoho-mail:
                 - com.au
                 - com.cn
                 - jp
+                - ca
             optional: true
 
 zoho-bigin:

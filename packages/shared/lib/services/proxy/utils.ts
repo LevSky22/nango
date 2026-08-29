@@ -458,10 +458,24 @@ export function buildProxyURL({ config, connection }: { config: ApplicationConst
     const endpointFormatted = normalizedEndpoint ? interpolateProxyUrlParts(normalizedEndpoint) : '';
 
     const combinedUrl = [baseFormatted, endpointFormatted].filter(Boolean).join('/');
-    const fullEndpoint = interpolateIfNeeded(combinedUrl, {
+    let fullEndpoint = interpolateIfNeeded(combinedUrl, {
         ...(connectionCopyWithParsedConnectionConfig(connection) as unknown as Record<string, string>),
         ...connection.credentials
     });
+
+    if (!config.baseUrlOverride && config.provider.proxy?.base_url_replacements) {
+        for (const [baseUrl, replacement] of Object.entries(config.provider.proxy.base_url_replacements)) {
+            if (!fullEndpoint.startsWith(baseUrl)) {
+                continue;
+            }
+
+            const rest = fullEndpoint.slice(baseUrl.length);
+            if (rest === '' || rest[0] === '/' || rest[0] === '?' || rest[0] === '#') {
+                fullEndpoint = `${replacement}${rest}`;
+                break;
+            }
+        }
+    }
 
     let url = new URL(fullEndpoint);
     if (config.params) {

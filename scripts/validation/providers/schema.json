@@ -295,6 +295,12 @@
                         "base_url": {
                             "type": "string"
                         },
+                        "base_url_replacements": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        },
                         "body": {
                             "type": "object",
                             "additionalProperties": {

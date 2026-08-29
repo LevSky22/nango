@@ -6,7 +6,7 @@ sidebarTitle: Zoho Mail
 
 ## Overview
 To authenticate with Zoho Mail, you need:
-1. **Domain Extension** - This extension indicates the data center where your account is hosted.
+1. **Domain Extension** - This extension indicates the data center where your account is hosted. Supported values are `com`, `eu`, `in`, `com.au`, `com.cn`, `jp`, and `ca` (Canada).
 
 This guide will walk you through finding your **Domain Extension** in Zoho Mail.
 
@@ -16,7 +16,8 @@ This guide will walk you through finding your **Domain Extension** in Zoho Mail.
 
 #### Step 1: Finding Your Domain Extension
 
-- To find your domain extension, log in to your [Zoho Mail account](https://www.zoho.com/mail/login.html) and check the URL in your browser's address bar. Your **Domain Extension** will be part of the URL between `mail.zoho.` and the first `/`.
+- To find your domain extension, log in to your [Zoho Mail account](https://www.zoho.com/mail/login.html) and check the URL in your browser's address bar. Your **Domain Extension** will usually be part of the URL between `mail.zoho.` and the first `/`.
+- For the Canadian data centre, select `ca`. Zoho Mail uses the exceptional API host `https://mail.zohocloud.ca`, while OAuth uses `https://accounts.zohocloud.ca`.
 
 #### Step 2: Enter credentials in the Connect UI
 
