@@ -51,17 +51,8 @@ export const patchUser = asyncWrapper<PatchUser, never>(async (req, res) => {
         return;
     }
 
-    // User is stored in session, so we need to update the DB
-    // @ts-expect-error you got to love passport
-    req.session.passport.user = updated;
-    req.session.save((err) => {
-        if (err) {
-            res.status(500).send({ error: { code: 'server_error', message: 'failed to update session' } });
-            return;
-        }
-
-        res.status(200).send({
-            data: userToAPI(updated)
-        });
+    // Authentication middleware reloads the user from the database; Basic auth has no persistent Passport session.
+    res.status(200).send({
+        data: userToAPI(updated)
     });
 });

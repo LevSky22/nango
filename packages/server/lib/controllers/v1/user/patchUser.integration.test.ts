@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { seeders } from '@nangohq/shared';
 
-import { isError, runServer, shouldBeProtected } from '../../../utils/tests.js';
+import { authenticateUser, isError, isSuccess, runServer, shouldBeProtected } from '../../../utils/tests.js';
 
 const route = '/api/v1/user';
 let api: Awaited<ReturnType<typeof runServer>>;
@@ -40,19 +40,24 @@ describe(`PATCH ${route}`, () => {
         });
     });
 
-    // TODO: can't test stuff that needs `user` because we are using an anonymous secret_key
-    //     it('should patch a user', async () => {
-    //         const { env, user, account } = await seeders.seedAccountEnvAndUser();
+    it('should patch a user and keep the current session authenticated', async () => {
+        const { user } = await seeders.seedAccountEnvAndUser();
+        const session = await authenticateUser(api, user);
+        const name = 'Updated Name';
 
-    //         const res = await api.fetch(route, {
-    //             method: 'GET',
-    //             token: env.secret_key
-    //         });
+        const updated = await api.fetch(route, {
+            method: 'PATCH',
+            session,
+            body: { name }
+        });
 
-    //         expect(res.res.status).toBe(200);
-    //         isSuccess(res.json);
-    //         expect(res.json).toStrictEqual<typeof res.json>({
-    //             data: {}
-    //         });
-    //     });
+        expect(updated.res.status).toBe(200);
+        isSuccess(updated.json);
+        expect(updated.json.data.name).toBe(name);
+
+        const fetched = await api.fetch(route, { method: 'GET', session });
+        expect(fetched.res.status).toBe(200);
+        isSuccess(fetched.json);
+        expect(fetched.json.data.name).toBe(name);
+    });
 });
